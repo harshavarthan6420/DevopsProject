@@ -25,10 +25,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run tests
+        run: npm test
+
       - name: Verify the app starts successfully
         run: |
           export ENV=DEV
           export PORT=8080
+          export HOST=127.0.0.1
           npm start > app.log 2>&1 &
           APP_PID=$!
 
@@ -46,3 +50,56 @@ jobs:
           kill $APP_PID || true
           cat app.log
           exit 1
+
+  deploy:
+    needs: build-and-verify
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Add EC2 host to known_hosts
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes "$EC2_USERNAME@$EC2_HOST" "mkdir -p /home/$EC2_USERNAME/simple-application"
+          rsync -av --delete --exclude '.git' -e "ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes" ./ "$EC2_USERNAME@$EC2_HOST:/home/$EC2_USERNAME/simple-application/"
+
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes "$EC2_USERNAME@$EC2_HOST" "
+            set -e
+            cd /home/$EC2_USERNAME/simple-application
+            npm ci
+            if ./node_modules/.bin/pm2 describe simple-application > /dev/null 2>&1; then
+              ./node_modules/.bin/pm2 restart simple-application --update-env
+            else
+              ./node_modules/.bin/pm2 start ecosystem.config.js --update-env
+            fi
+            ./node_modules/.bin/pm2 save
+            curl -sSf http://127.0.0.1:8080/ > /dev/null
+          "
