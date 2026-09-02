@@ -97,15 +97,14 @@ jobs:
             --instance-ids "$EC2_INSTANCE_ID" \
             --comment "Deploy ${GITHUB_SHA}" \
             --parameters 'commands=[
-              "set -e",
               "mkdir -p /tmp/devops-deploy",
               "aws s3 cp s3://devops-project-deploy-2026/releases/'${GITHUB_SHA}'.tar.gz /tmp/devops-deploy/deploy.tar.gz",
               "mkdir -p /home/ubuntu/simple-application",
               "tar -xzf /tmp/devops-deploy/deploy.tar.gz -C /home/ubuntu/simple-application",
               "chown -R ubuntu:ubuntu /home/ubuntu/simple-application",
               "sudo -u ubuntu -H bash -lc \"cd /home/ubuntu/simple-application && npm ci\"",
-              "sudo -u ubuntu -H bash -lc \"cd /home/ubuntu/simple-application && /usr/local/bin/pm2 restart simple-application --update-env\"",
-              "sudo -u ubuntu -H bash -lc \"/usr/local/bin/pm2 save\"",
+              "sudo -u ubuntu -H /usr/local/bin/pm2 restart simple-application --update-env",
+              "sleep 3",
               "curl -sSf http://127.0.0.1:8080/ > /dev/null",
               "echo Deployment successful"
             ]' \
