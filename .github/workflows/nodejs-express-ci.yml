@@ -75,13 +75,15 @@ jobs:
 
       - name: Create deployment package
         run: |
+          rm -f deploy.tar.gz
           tar \
             --exclude='.git' \
             --exclude='node_modules' \
             --exclude='app.log' \
             --exclude='*.log' \
+            --exclude='deploy.tar.gz' \
             -czf /tmp/deploy.tar.gz .
-          mv /tmp/deploy.tar.gz deploy.tar.gz
+          cp /tmp/deploy.tar.gz ./deploy.tar.gz
 
       - name: Upload deployment package to private S3
         run: |
