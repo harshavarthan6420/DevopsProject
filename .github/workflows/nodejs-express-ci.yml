@@ -102,11 +102,11 @@ jobs:
               "aws s3 cp s3://devops-project-deploy-2026/releases/'${GITHUB_SHA}'.tar.gz /tmp/devops-deploy/deploy.tar.gz",
               "mkdir -p /home/ubuntu/simple-application",
               "tar -xzf /tmp/devops-deploy/deploy.tar.gz -C /home/ubuntu/simple-application",
-              "cd /home/ubuntu/simple-application",
-              "npm ci",
-              "pm2 restart simple-application --update-env",
-              "pm2 save",
-              "curl -sSf http://127.0.0.1:8080/",
+              "chown -R ubuntu:ubuntu /home/ubuntu/simple-application",
+              "sudo -u ubuntu -H bash -lc \"cd /home/ubuntu/simple-application && npm ci\"",
+              "sudo -u ubuntu -H bash -lc \"cd /home/ubuntu/simple-application && /usr/local/bin/pm2 restart simple-application --update-env\"",
+              "sudo -u ubuntu -H bash -lc \"/usr/local/bin/pm2 save\"",
+              "curl -sSf http://127.0.0.1:8080/ > /dev/null",
               "echo Deployment successful"
             ]' \
             --output text \
